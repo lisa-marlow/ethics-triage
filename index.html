@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>How do I decide what sort of review I need for my project?</title>
+
+    <style>
+      /* =========================================================
+         Basic page layout
+         ========================================================= */
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        margin: 24px;
+        line-height: 1.4;
+      }
+
+      .card {
+        max-width: 820px;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 18px;
+      }
+
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 6px;
+      }
+
+      .muted {
+        color: #555;
+        font-size: 0.95rem;
+        margin: 0 0 14px;
+      }
+
+      .small {
+        font-size: 0.9rem;
+        color: #444;
+      }
+
+      .q {
+        font-weight: 650;
+        margin: 16px 0 10px;
+      }
+
+      .btnrow {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 1px solid #ccc;
+        background: #fff;
+        border-radius: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+      }
+
+      button:hover {
+        border-color: #999;
+      }
+
+      .nav {
+        margin-top: 14px;
+        display: flex;
+        gap: 10px;
+      }
+
+      .result {
+        background: #f7f7f7;
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 16px;
+      }
+
+      .pill {
+        display: inline-block;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: #eef;
+        font-size: 0.85rem;
+        margin-right: 6px;
+      }
+
+      /* List spacing (used in help + result extras) */
+      ul {
+        margin: 8px 0 12px 18px;
+        padding-left: 18px;
+      }
+
+      li {
+        margin-bottom: 8px;
+      }
+
+      /* =========================================================
+         Modal styles (global; used anywhere via showModal())
+         ========================================================= */
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.45);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        z-index: 9999;
+      }
+
+      .modal {
+        background: #fff;
+        max-width: 720px;
+        width: 100%;
+        border-radius: 12px;
+        padding: 18px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+      }
+
+      .modal h3 {
+        margin: 0 0 10px;
+      }
+
+      .modal p {
+        margin: 0 0 10px;
+        line-height: 1.4;
+      }
+
+      .modal .actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 12px;
+      }
+
+      /* A button that looks like a hyperlink */
+      .linklike {
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        text-decoration: underline;
+        font: inherit;
+        color: #0645ad;
+      }
+
+      .linklike:hover,
+      .linklike:focus {
+        color: #0b0080;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="card">
+      <h1>How do I decide what sort of review I need for my project?</h1>
+      <p class="muted">
+        Answer a few questions to get guidance on the most likely pathway (<em>i.e.</em> institutional oversight,
+        exemption check, or proceed to the appropriate ethics review pathway).
+      </p>
+
+      <div id="app"></div>
+
+      <p class="small" style="margin-top: 16px">
+        This tool provides structured guidance to assist researchers in identifying the appropriate review pathway. Final determinations rest with the relevant review body, and advice from the Ethics Office may be required in complex cases.
+      </p>
+    </div>
+
+    <script>
+      /**
+       * Decision-tree wizard (single-file app)
+       * --------------------------------------
+       * This file contains:
+       *  - HTML shell (page)
+       *  - CSS styles (how it looks)
+       *  - JS logic + the decision tree data (how it works)
+       *
+       * The "tree" object below is the main thing you edit:
+       *  - edit question text
+       *  - update help text
+       *  - add/remove nodes
+       *  - change yes/no routing
+       *
+       * Everything below the tree (render/nav/go/etc.) is the engine.
+       */
+
+      /* =========================================================
+         1) Decision tree data
+         ========================================================= */
+
+      const tree = {
+        start: "isResearch",
+
+        nodes: {
+          /* -------------------------------
+             Research / QA split
+             ------------------------------- */
+          isResearch: {
+  // ACTIVITY TYPE NODE (Research vs QA vs Case Study)
+  type: "pickone",
+  question: "Which best describes the activity?",
+  help: `<p><strong>Choose the option that best fits the primary purpose of the activity:</strong></p>
+
+  <p><strong>Research</strong> is intended to <em>create new knowledge or understanding</em>, or to train researchers how to do this.
+  It may involve developing new ideas or using existing knowledge in new ways.</p>
+
+  <p><strong>Quality Assurance (QA)</strong> is an activity where <em>the primary purpose is to monitor or improve the quality of a service</em>
+  delivered by an individual or an organisation.
+  <strong>This could apply to investigations into the effectiveness of novel approaches to learning and teaching.</strong></p>
+
+  <p><strong>Case study (single case)</strong> describes or reflects on a single individual, event, or practice.
+  A case study is usually <em>not human research</em> if it is descriptive, illustrative, or reflective only and does not seek to answer a research question or produce generalisable findings.
+  (If the case study is guided by a research question and designed to generate knowledge beyond the individual case, choose <strong>Research</strong>.)</p>`,
+
+  options: [
+    { label: "Research", nextNode: "isHumanResearch" },
+    { label: "Quality Assurance (QA) / evaluation", nextNode: "ethicsTriggers" },
+    { label: "Case study (single case, not human research)", nextNode: "applyInstitutional" }
+  ]
+},
+
+
+          isHumanResearch: {
+            // HUMAN RESEARCH NODE
+            type: "yesno",
+            question: "Is it human research?",
+            help: `<strong>Human research</strong> is research about <em>people</em>, their <em>tissue</em>, or their <em>data</em>.<br><br>
+<div style="margin-top:8px;">
+  <strong>Research that is <em>not</em> human research</strong>, and does not, as an independent activity, require ethics review, includes:
+  <ul>
+    <li>A literature review that supports the development or design of a research project.</li>
+    <li>Research using aggregate data.</li>
+    <li>Research using public data (e.g. information that has been published, or information that has entered the public domain with the consent of the person(s) with whom the information is associated).</li>
+  </ul>
+</div>
+<div style="margin-left:18px; font-size:0.9rem;">
+  <em>Note:</em> SCU Ethics Committees do not typically consider social media posts to be in the public domain.
+  See <a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2025"
+     target="_blank" rel="noopener">National Statement on Ethical Conduct in Human Research (2025), Chapter 3.1</a>
+  (Secondary use of data or information), p. 37.<br><br>
+</div>
+For more guidance on Human Research, see the
+<a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2025"
+   target="_blank" rel="noopener">National Statement (2025)</a>, p. 8.<br><br>
+<em>Based on these considerations, decide if the research is human research.</em>`,
+            yes: "exemptionEligible",
+            no: {
+              type: "result",
+              title: "Not human research",
+              tag: "Proceed",
+              body: `Activities that are not <strong>human research</strong> do not require human research ethics review.
+You may proceed without submitting a human research ethics application, provided the activity is conducted as described.`,
+              extra: [
+                "If the scope or purpose of the activity changes (for example, if identifiable data are introduced or data are later used for a different purpose), you should reassess whether ethics review is required.",
+                "Other institutional approvals (e.g. data governance, or permissions to access institutional systems or data) may still apply.",
+              ],
+            },
+          },
+
+          ethicsTriggers: {
+            // QA WITH ETHICS TRIGGERS NODE
+            type: "multi",
+            popup: "waiver",
+            question: "Do any triggers for ethics review apply?",
+            help: `Select any that apply (or select “None of these”).<br><br>
+For more guidance on when QA still needs ethics review, see the
+<a href="https://www.nhmrc.gov.au/about-us/publications/ethical-considerations-quality-assurance-and-evaluation-activities"
+   target="_blank" rel="noopener">Ethical Considerations in Quality Assurance and Evaluation Activities</a>.`,
+            options: [
+              "Potentially infringes privacy or professional reputation of participants, providers, or organisations",
+              "Secondary use of data (e.g., using QA/evaluation data for another purpose; may require a waiver of consent)",
+              "Gathers information beyond what is collected routinely (e.g., extra investigations or biospecimens)",
+              "Tests non-standard (innovative) protocols or equipment",
+              "Compares cohorts",
+              "Uses randomisation, control groups, or placebos",
+              "Targets analysis of data involving minority/vulnerable groups separated out from the main QA/evaluation dataset",
+              "None of these",
+            ],
+            next: (selected) => {
+              const none = selected.includes("None of these");
+              const anyOther = selected.some((x) => x !== "None of these");
+              if (anyOther) return "applyEthics";
+              if (none) return "institutionalTriggers";
+              return "ethicsTriggers"; // nothing selected -> stay here
+            },
+          },
+
+          /* --------------------------------------------------------
+             Exemption assessment (NS 5.1.16–5.1.18 & 3.1.61)
+             -------------------------------------------------------- */
+
+          datasetGate_identifiableSharedBanked: {
+            // ID'D DATASETS NOT EXEMPT NODE
+            type: "yesno",
+            question: "Will you use shared or banked data or information that is stored in a form that can identify individuals?",
+            help: `This includes data or information that is identifiable or reasonably re-identifiable in the form you will receive/access it. The question is typically relevant to research using existing datasets.`,
+            yes: "datasetGate_identifiableSharedBanked_result",
+            no: "exempt_lower_risk",
+          },
+
+          datasetGate_identifiableSharedBanked_result: {
+            // NOT EXEMPT RESULT ID'D DATASETS
+            type: "result",
+            title: "Not eligible for exemption (identifiable shared/banked data)",
+            tag: "Not exempt",
+            body: `A research proposal to use (re)identifiable shared or banked data or information cannot be exempted from ethics review
+(<a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2025"
+       target="_blank" rel="noopener">National Statement 2025</a>, 3.1.61).
+Consider whether the dataset or information could be provided to you in a non-identifable format.<br><br>
+<span class="small">Note: Research using (re)identifiable shared or banked data can sometimes qualify as lower risk research.</span>`,
+            nextNode: "lowRiskEligible",
+          },
+
+          exempt_criteria_ad: {
+            // EXEMPT CRITERIA NODE
+            type: "multi",
+            question: "Does the research satisfy one or more of the criteria below (a)–(d)?",
+            help: `The research must satisfy at least one criterion (National Statement 2025, 5.1.17(a)–(d)). Select all that apply (or select “None of these”).`,
+            options: [
+              "a) Uses collections of information/data with all personal identifiers removed before the researchers receive it, and researchers agree not to re-identify, to prevent re-identification, and to share data only in ways that do not increase re-identification risk.",
+              "b) Restricted to surveys and observation of public behaviour using information collected/recorded without personal identifiers, and highly unlikely to cause distress to anyone associated with the information or outcomes.",
+              "c) Conducted as part of an educational training program for training purposes only, with outcomes/documentation for program use only.",
+              "d) Uses only information publicly available through a legislative/regulatory mechanism and protected by law (e.g., mandatory reporting information; registries of births and deaths; coronial investigations; ABS reports).",
+              "None of these",
+            ],
+            next: (selected) => {
+              const anyCriterion = selected.some((x) => x !== "None of these");
+              const none = selected.includes("None of these");
+              if (anyCriterion) return "exempt_disqualifier_consent";
+              if (none) return "exempt_not_eligible_no_criteria";
+              return "exempt_criteria_ad";
+            },
+          },
+
+          exempt_disqualifier_consent: {
+            // EXEMPTION PRIVACY NODE
+            type: "yesno",
+            question: "Does the research involve the use of personal information without the consent of the individuals concerned?",
+            help: `If participants are or will be <em>identified or reasonably reidentifiable, <strong>and</strong> they have not consented or will not consent to your use of their data,</em>
+the research is ineligible for exemption because a waiver of the requirement for consent would need to be granted by an appropriate ethics review body
+(National Statement 2025, 5.1.16).<br><br>
+
+See also <a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2025"
+target="_blank" rel="noopener">National Statement</a> Chapter 3.1, Element 4 on identifiability of information, data management, secondary use of information and sharing of data and information.<br><br>
+
+If individuals either <em><strong>cannot be (re)identified</strong></em>, <strong>or</strong> if they <em><strong>gave or will give their consent for this specific research use</strong></em>, choose "No".<br><br>
+
+<em>Based on these considerations, say whether the activity uses identifiable participant data without consent.</em><br><br>`,
+            yes: "exempt_not_eligible_waiver_needed",
+            no: "exemptionHowTo",
+          },
+
+          exempt_not_eligible_waiver_needed: {
+            // NOT EXEMPT RESULT PRIVACY
+            type: "result",
+            title: "Not eligible for an exemption",
+            tag: "Ethics review required",
+            body: "This project is not eligible for an exemption from ethics review because it involves use of personal information without consent. A waiver of the requirement for consent would need to be considered by an appropriate ethics review body (National Statement 2025, 5.1.16).",
+            extra: ["Continue to consider whether the project is suitable for Low Risk Committee (LRC) review or requires HREC review.",
+		],
+            popup: "waiver",
+            nextNode: "lowRiskEligible",
+          },
+
+          exempt_lower_risk: {
+            // EXEMPT LOWER RISK NODE
+            type: "yesno",
+            question: "Does the research carry lower risk to participants and/or the community?",
+            help: `To be eligible for an exemption, the research must carry lower risk (National Statement 2025, 5.1.17).
+Lower risk human research describes research in which the only foreseeable risk is no greater than discomfort.
+Where a person’s reactions might exceed discomfort and become distress, this should be viewed as harm rather than discomfort.<br><br>
+
+Read Chapter 2.1 of the
+<a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2025" target="_blank" rel="noopener">
+National Statement on Ethical Conduct in Human Research (2025)</a>.<br><br>
+
+Research involving a fetus or fetal tissue cannot be exempted from ethics review, except where the research uses <em>only data</em> associated with fetuses or fetal tissue (NS 4.2.6).<br><br>
+
+<em>Based on these considerations, decide if the research is lower risk.</em>`,
+            yes: "exempt_criteria_ad",
+            no: "exempt_not_eligible_risk",
+          },
+
+          exempt_not_eligible_risk: {
+            // NOT EXEMPT RESULT NOT LR
+            type: "result",
+            title: "Not eligible for an exemption",
+            tag: "Ethics review required",
+            body: "This project is not eligible for an exemption from ethics review because it does not meet the lower-risk requirement (National Statement 2025, 5.1.17).",
+            extra: ["Proceed to consider whether the project is suitable for Low Risk Committee (LRC) review or requires HREC review."],
+            nextNode: "lowRiskEligible",
+          },
+
+          exempt_not_eligible_no_criteria: {
+            // NOT EXEMPT RESULT FAILS CRITERIA
+            type: "result",
+            title: "Not eligible for an exemption",
+            tag: "Ethics review required",
+            body: "This project is not eligible for an exemption from ethics review because it does not satisfy the exemption criteria in National Statement 2025, 5.1.17(a)–(d).",
+            extra: ["Continue to consider whether the project is suitable for Low Risk Committee (LRC) review or requires HREC review."],
+            nextNode: "lowRiskEligible",
+          },
+
+          exemptionEligible: {
+            // EXEMPTION TEST REQUEST NODE
+            type: "yesno",
+            question: "Do you want to check whether this human research may be eligible for an exemption from ethics review?",
+            help: `Research may be eligible for exemption only if it meets one of the criteria in National Statement 5.1.17(a)–(d) and is not disqualified under 5.1.16; additionally, research using identifiable shared or banked data is excluded from exemption under 3.1.61.
+See <a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2025"
+   target="_blank" rel="noopener">National Statement on Ethical Conduct in Human Research (2025)</a>, 3.1.61 & 5.1.15–5.1.18.<br><br>
+<em>If you would like to test whether your research is eligible for exemption, choose "Yes".</em>`,
+            yes: "datasetGate_identifiableSharedBanked",
+            no: "lowRiskEligible",
+          },
+
+          exemptionHowTo: {
+            // EXEMPTION ELIGIBLE RESULT
+            type: "result",
+            title: "Eligible for an exemption — how to apply",
+            tag: "Exemption",
+            body: `To apply for an exemption, researchers must review
+<a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2025"
+     target="_blank" rel="noopener">National Statement on Ethical Conduct in Human Research (2025), sections 5.1.15–5.1.18</a>
+and email the following information to the Ethics Office at
+<a href="mailto:human.ethics@scu.edu.au?subject=Application%20for%20Exemption">human.ethics@scu.edu.au</a>.`,
+            extra: [
+              "A 2-page (maximum) description of the activity.",
+              "A justification letter addressing the relevant criterion in National Statement 2025, section 5.1.17(a)–(d), and confirming that the activity is not disqualified under section 5.1.16.",
+              "Any relevant project documents (e.g. participant documentation or gatekeeper correspondence).",
+              "The HREC Chair will assess the request using the Exemption from Review Assessment template and issue a letter of approval or rejection within 10 business days.",
+              "The Ethics Office will keep records of research exempted from ethics review. Researchers must also keep an auditable record of any research exempted from ethics review in accordance with section 5.1.15.",
+            ],
+          },
+
+          /* -------------------------------
+             QA -> ethics/institutional outcomes
+             ------------------------------- */
+          applyEthics: {
+            // ETHICS REVIEW NEEDED RESULT QA
+            type: "result",
+            title: "Apply for Human Research Ethics review",
+            tag: "Human Research Ethics",
+            body: "Based on the selected triggers, this activity is likely to require Human Research Ethics review.",
+            extra: ["You may still be eligible to discuss an exemption in some edge cases (see the exemption check below)."],
+            nextNode: "exemptionEligible", // NOTE: you previously had "exemptionCheckIntro" but no node with that id exists
+          },
+
+          institutionalTriggers: {
+            // QA INSTITUTIONAL REVIEW NODE
+            type: "multi",
+            question: "Do any triggers for institutional review / oversight apply?",
+            help: `<em>Some uses of institutional data will require formal approval.</em><br><br>
+Select any that apply (or select “None of these”).`,
+            options: [
+              "Data collected/analysed is coincidental to standard operating procedures with standard equipment/protocols (i.e., the data is routinely collected and used).",
+              "Data collected/analysed is expressly for maintaining standards or identifying areas for improvement in that environment",
+              "Data collected/analysed is not linked to individuals",
+              "None of these",
+            ],
+            next: (selected) => {
+              const anyOther = selected.some((x) => x !== "None of these");
+              if (anyOther) return "applyInstitutional";
+              if (selected.includes("None of these")) return "proceed";
+              return "institutionalTriggers";
+            },
+          },
+
+applyInstitutional: {
+  // QA INSTITUTIONAL REVIEW RESULT
+  type: "result",
+  title: "Apply for Institutional Oversight",
+  tag: "Institutional review / oversight",
+  body: `<p><strong>This looks like an activity that requires institutional rather than ethics review.</strong><br>
+Some non-research activities, including quality assurance, evaluation, and non-research case studies, may still require institutional oversight to manage residual ethical, legal, or reputational risks.</p>
+
+<h3>What institutional review may consider</h3>
+
+<p>Institutional review may consider:</p>
+
+<ul>
+  <li>whether appropriate <strong>consent</strong> has been obtained for the use and/or dissemination of information</li>
+  <li><strong>risks of identifiability or re-identification</strong>, including contextual identification</li>
+  <li>the use of <strong>sensitive, personal, or confidential information</strong></li>
+  <li>potential <strong>reputational, legal, or professional risk</strong> to individuals, groups, or organisations</li>
+  <li>whether any <strong>conditions or limitations on dissemination or publication</strong> are appropriate</li>
+</ul>
+
+<p>An institutional oversight pathway is being developed at SCU.
+In the interim, please discuss this activity with your <strong>Faculty Associate Dean Research (ADR)</strong> or nominated Faculty advisor to determine the appropriate governance process and any required documentation or registration.</p>`,
+},
+
+
+          proceed: {
+            // QA NO REVIEW RESULT
+            type: "result",
+            title: "Proceed (no formal review indicated)",
+            tag: "Proceed",
+            body: "No ethics or institutional review triggers were selected. Based on your answers, formal review is unlikely to be required.",
+            extra: ["If you need a waiver of consent for use of identifiable data, review may still be required (privacy obligations apply)."],
+            popup: "waiver",
+            hideContinue: true,
+          },
+
+          /* -------------------------------
+             Low Risk vs HREC routing
+             ------------------------------- */
+          lowRiskEligible: {
+            // LR REVIEW NODE
+            type: "yesno",
+            question: "Is the project eligible for review by the Low Risk Committee (LRC)?",
+            help: `Low risk human research describes research in which the only foreseeable risk is no greater than <em>discomfort</em>.
+Where participants' reactions might exceed discomfort and become <em>distress</em>, this should be viewed as <em>harm</em> rather than discomfort, and will not be eligible for Low Risk review.<br><br>
+
+<strong>Assessing risk:</strong> Determining whether research is eligible for Low Risk Committee (LRC) review requires careful consideration of the nature, likelihood, and seriousness of potential harms to participants or the community.<br><br>
+
+<strong>Key chapters of the National Statement to consult:</strong>
+<ul>
+  <li><strong>Chapter 2.1 - Risk and Benefit:</strong> Assists researchers to identify and articulate the level of risk involved in the research, strategies for risk minimisation, justification and management, and the appropriate level of ethical review.</li>
+  <li><strong>Chapter 3.1</strong> - Adopts a 'lifecycle of research' perspective, outlining ethical challenges that may arise at each stage of a project.</li>
+  <li><strong>Chapter 4.1</strong> - Discusses the recruitment of participants whose circumstances or experiences may place them at increased risk from their involvement in research.</li>
+</ul>
+
+It is essential to engage with these chapters to ensure that risks are identified and managed appropriately and that the research aligns with established ethical standards.<br><br>
+
+<strong>Important:</strong> The National Statement (2025) directs some types of research to <strong>HREC review as a matter of course</strong>, even where the research may otherwise appear low risk.<br><br>
+
+<strong>These include:</strong>
+<ul>
+  <li>
+    <strong>Participant populations where combinations of risk increase the likelihood of harm</strong>
+    <ul>
+      <li>Pregnant women and the human fetus or fetal tissue (unless the research is highly unlikely to affect health) (NS 4.2.4-4.2.5)</li>
+      <li>Aboriginal and Torres Strait Islander peoples (noting that some projects may qualify for low-risk review) (NS 4.7.13)</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Research contexts likely to increase the risk of harm</strong>
+    <ul>
+      <li>Research involving illegal activity, unless only non-identifiable data are used (NS 2.3.4, 4.9.6)</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Waivers of consent or challenges to consent in higher-risk contexts</strong>
+    <ul>
+      <li>Young people of developing maturity who can assent, where parent or guardian consent is not possible (NS 4.3.8)</li>
+      <li>Active concealment or deception (NS 2.3.4)</li>
+      <li>Use of personal information in medical research or personal health information without consent (NS 2.3.9)</li>
+      <li>Use of stored human biospecimens without specific consent (NS 3.2.14)</li>
+      <li>Seriously ill or unconscious participants (e.g. emergency or intensive care research) (NS 4.5.21-4.5.22, 4.5.35)</li>
+    </ul>
+  </li>
+</ul>
+
+<em>Note:</em> Except for specific provisions for emergency and intensive care research, waivers of consent may only be granted for <strong>low risk research</strong> (NS 2.3.10(a)).<br><br>
+
+Read the relevant chapters of the
+<a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2025" target="_blank" rel="noopener">
+National Statement on Ethical Conduct in Human Research (2025)</a>.<br><br>
+
+<em>Based on these considerations, decide if the activity meets the criteria for LRC review.</em>`,
+            yes: "lrcPath",
+            no: "hrecPath",
+          },
+
+          lrcPath: {
+            type: "result",
+            title: "Apply for Low Risk Committee (LRC) review",
+            tag: "Low risk",
+            body: `This project requires ethics review and appears suitable for the <strong>Low Risk Committee (LRC)</strong> pathway.<br><br>
+Prepare and submit an application for LRC review. Guidance on how to apply is on the
+<a href="https://www.scu.edu.au/research/human-research-ethics/applications-and-approvals/"
+   target="_blank" rel="noopener">Applications and Approvals</a> page.`,
+          },
+
+          hrecPath: {
+            // HREC REVIEW NODE
+            type: "result",
+            title: "Apply for HREC review",
+            tag: "HREC",
+            body: `This project requires ethics review and is not eligible for the Low Risk Committee pathway. Prepare and submit an application for HREC review.<br><br>
+Guidance on how to apply is on the
+<a href="https://www.scu.edu.au/research/human-research-ethics/applications-and-approvals/" target="_blank" rel="noopener">
+Applications and Approvals</a> page.`,
+          },
+        },
+      };
+
+      /* =========================================================
+         2) App state
+         ========================================================= */
+
+      const state = {
+        history: [],
+        currentNodeId: tree.start,
+        answers: {},
+      };
+
+      /* =========================================================
+         3) Rendering engine
+         ========================================================= */
+
+      function render() {
+        const app = document.getElementById("app");
+        app.innerHTML = "";
+
+        const node = getNode(state.currentNodeId);
+
+        // ---- Yes/No node ----
+        if (node.type === "yesno") {
+          app.appendChild(el("div", { className: "q" }, node.question));
+
+          if (node.help) {
+            const helpDiv = el("div", { className: "muted" });
+            helpDiv.innerHTML = node.help; // NOTE: allows HTML in help text
+            app.appendChild(helpDiv);
+          }
+
+          const row = el("div", { className: "btnrow" });
+          row.appendChild(btn("Yes", () => go(node.yes, true)));
+          row.appendChild(btn("No", () => go(node.no, false)));
+          app.appendChild(row);
+
+          app.appendChild(nav());
+          return;
+        }
+
+        // ---- Multi-select node ----
+        if (node.type === "multi") {
+          app.appendChild(el("div", { className: "q" }, node.question));
+
+          if (node.help) {
+            const helpDiv = el("div", { className: "muted" });
+            helpDiv.innerHTML = node.help; // NOTE: allows HTML in help text
+            app.appendChild(helpDiv);
+          }
+
+          const list = el("div", {});
+          const key = state.currentNodeId;
+          const selected = new Set(state.answers[key] || []);
+
+          node.options.forEach((opt) => {
+            const id = `opt_${key}_${hash(opt)}`;
+            const wrapper = el("div", {});
+            const input = el("input", { type: "checkbox", id });
+
+	    const label = el("label", { htmlFor: id }, opt);
+
+            input.checked = selected.has(opt);
+
+            input.addEventListener("change", () => {
+              const now = new Set(state.answers[key] || []);
+              if (input.checked) now.add(opt);
+              else now.delete(opt);
+
+              // enforce mutual exclusion of "None of these"
+              if (opt === "None of these" && input.checked) {
+                node.options.filter((o) => o !== "None of these").forEach((o) => now.delete(o));
+              }
+              if (opt !== "None of these" && input.checked) now.delete("None of these");
+
+              state.answers[key] = Array.from(now);
+              render();
+            });
+
+            wrapper.appendChild(input);
+            wrapper.appendChild(el("label", { htmlFor: id, style: "margin-left:8px" }, opt));
+            list.appendChild(wrapper);
+          });
+
+          app.appendChild(list);
+
+          // Optional: show waiver explainer link on this multi-select node
+          if (node.popup === "waiver") {
+            const waiverBtn = document.createElement("button");
+            waiverBtn.className = "linklike";
+            waiverBtn.type = "button";
+            waiverBtn.textContent = "Why might secondary data require a waiver of consent?";
+            waiverBtn.style.display = "block";
+            waiverBtn.style.marginTop = "8px";
+            waiverBtn.style.marginBottom = "8px";
+            waiverBtn.addEventListener("click", () => showModal("Waiver of consent (explainer)", WAIVER_INFO_HTML));
+            app.appendChild(waiverBtn);
+          }
+
+          const nextBtn = btn("Continue", () => {
+            const sel = state.answers[state.currentNodeId] || [];
+            const next = node.next(sel);
+            if (next !== state.currentNodeId) go(next, sel);
+          });
+
+          nextBtn.style.marginTop = "12px";
+          app.appendChild(nextBtn);
+          app.appendChild(nav());
+          return;
+        }
+
+// ---- Pick-one node (single choice + routing) ----
+if (node.type === "pickone") {
+  app.appendChild(el("div", { className: "q" }, node.question));
+
+  if (node.help) {
+    const helpDiv = el("div", { className: "muted" });
+    helpDiv.innerHTML = node.help;
+    app.appendChild(helpDiv);
+  }
+
+  const list = el("div", {});
+  const key = state.currentNodeId;
+  const selected = state.answers[key] || null;
+
+  node.options.forEach((opt, idx) => {
+    const id = `opt_${key}_${idx}`;
+    const wrapper = el("div", { className: "option" });
+
+    const input = el("input", { type: "radio", name: key, id });
+    input.checked = selected === opt.label;
+
+    const label = el("label", { htmlFor: id }, opt.label);
+
+   input.addEventListener("change", () => {
+  // save current state for Back
+  state.history.push({
+    nodeId: state.currentNodeId,
+    answers: { ...state.answers }   // snapshot
+  });
+
+  // record the choice
+  state.answers[key] = opt.label;
+
+  // move forward
+  state.currentNodeId = opt.nextNode;
+  render();
+});
+
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(label);
+    list.appendChild(wrapper);
+  });
+
+  app.appendChild(list);
+  return;
+}
+
+
+        // ---- Result node ----
+        if (node.type === "result") {
+          const box = el("div", { className: "result" });
+
+          box.appendChild(el("div", {}, el("span", { className: "pill" }, node.tag || "Result")));
+          box.appendChild(el("div", { className: "q" }, node.title));
+
+          const bodyDiv = el("div", {});
+          bodyDiv.innerHTML = node.body; // NOTE: allows HTML in result body
+          box.appendChild(bodyDiv);
+
+          if (node.extra && node.extra.length) {
+            const ul = el("ul", {});
+            node.extra.forEach((x) => ul.appendChild(el("li", {}, x)));
+            box.appendChild(ul);
+          }
+
+          // Optional: show waiver explainer link on this result node
+          if (node.popup === "waiver") {
+            const waiverBtn = document.createElement("button");
+            waiverBtn.className = "linklike";
+            waiverBtn.type = "button";
+            waiverBtn.textContent = "What’s a waiver of consent?";
+            waiverBtn.addEventListener("click", () => showModal("Waiver of consent (explainer)", WAIVER_INFO_HTML));
+            box.appendChild(waiverBtn);
+          }
+
+          app.appendChild(box);
+
+          // Continue button for results (unless explicitly hidden)
+          if (!node.hideContinue) {
+            if (node.nextNode) {
+              const cont = btn("Continue", () => go(node.nextNode, "result"));
+              cont.style.marginTop = "12px";
+              app.appendChild(cont);
+            } else if (typeof node.next === "function") {
+              const cont = btn("Continue", () => go(node.next(), "result"));
+              cont.style.marginTop = "12px";
+              app.appendChild(cont);
+            }
+          }
+
+          app.appendChild(nav(true));
+          return;
+        }
+
+        app.appendChild(el("div", {}, "Unknown node type."));
+      }
+
+      /* =========================================================
+         4) Navigation + helpers
+         ========================================================= */
+
+      function nav() {
+        const row = el("div", { className: "nav" });
+        row.appendChild(btn("Back", () => back(), state.history.length === 0));
+        row.appendChild(btn("Restart", () => restart()));
+        return row;
+      }
+
+      function getNode(idOrObj) {
+        if (typeof idOrObj === "string") return tree.nodes[idOrObj];
+        return idOrObj; // inline result object
+      }
+
+      function go(next, answerValue) {
+        // store history so Back works
+        state.history.push({
+          nodeId: state.currentNodeId,
+          answers: JSON.parse(JSON.stringify(state.answers)),
+        });
+
+        // record answer against current node
+        state.answers[state.currentNodeId] = answerValue;
+
+        // move to the next node
+        if (typeof next === "string") {
+          state.currentNodeId = next;
+        } else {
+          // inline node object (rare, but supported)
+          state.currentNodeId = "__inline__" + Math.random().toString(16).slice(2);
+          tree.nodes[state.currentNodeId] = next;
+        }
+
+        render();
+      }
+
+      function back() {
+  if (!state.history.length) return;
+
+  const prev = state.history.pop();
+
+  // 🛡️ guard against malformed history entries
+  if (!prev || !prev.nodeId) return;
+
+  state.currentNodeId = prev.nodeId;
+  state.answers = prev.answers || {};
+  render();
+}
+
+
+      function restart() {
+        state.history = [];
+        state.currentNodeId = tree.start;
+        state.answers = {};
+        render();
+      }
+
+      function btn(label, onClick, disabled = false) {
+        const b = el("button", {});
+        b.textContent = label;
+        b.disabled = !!disabled;
+        b.addEventListener("click", onClick);
+        return b;
+      }
+function el(tag, attrs = {}, ...children) {
+  const node = document.createElement(tag);
+
+  Object.entries(attrs || {}).forEach(([k, v]) => {
+    if (v == null) return;
+    if (k === "className") node.className = v;
+    else if (k === "htmlFor") node.htmlFor = v;
+    else node.setAttribute(k, v);
+  });
+
+  children.flat().forEach((ch) => {
+    if (ch == null || ch === false) return;
+
+    if (typeof ch === "string" || typeof ch === "number") {
+      node.appendChild(document.createTextNode(String(ch)));
+    } else if (ch instanceof Node) {
+      node.appendChild(ch);
+    } else {
+      // Defensive fallback — prevents crashes
+      node.appendChild(document.createTextNode(String(ch)));
+    }
+  });
+
+  return node;
+}
+
+
+      function hash(s) {
+        let h = 0;
+        for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+        return Math.abs(h);
+      }
+
+      /* =========================================================
+         5) Waiver of consent modal content
+         ========================================================= */
+
+      const WAIVER_INFO_HTML = `
+  <p><strong>When is a waiver of consent needed?</strong> Typically, researchers need to apply for a waiver of consent when they propose to analyse an existing dataset of people’s information that was collected for purposes other than research. In these cases, individuals whose data is being used will not have consented to its use in research, so an ethics committee must determine whether it is appropriate for the research to proceed without participants’ explicit consent.</p>
+
+  <p><strong>A waiver is required</strong> for any dataset where consent has not been given, regardless of whether it contains identifying details. The single exception to this is research using <em>non-identifiable data that has been exempted from review</em>, where the decision to exempt takes priority. Most often, waivers can be approved via a non-HREC ethics review process.</p>
+
+  <p><strong>HREC approval is required</strong> where the dataset contains identifiable information and either the research is medical in nature or the dataset includes health information.</p>
+
+  <p><strong>National Statement criteria:</strong> The conditions for granting a waiver are detailed in the <a href="https://www.nhmrc.gov.au/about-us/publications/national-statement-ethical-conduct-human-research-2023"
+     target="_blank" rel="noopener"> National Statement Chapter 2.3.10</a>. Researchers seeking a waiver must demonstrate that the research meets <em>all nine</em> criteria listed.</p>
+`;
+
+      function showModal(title, bodyHtml) {
+        const overlay = document.createElement("div");
+        overlay.className = "modal-overlay";
+        overlay.tabIndex = -1;
+
+        const box = document.createElement("div");
+        box.className = "modal";
+        box.setAttribute("role", "dialog");
+        box.setAttribute("aria-modal", "true");
+
+        const h = document.createElement("h3");
+        h.textContent = title;
+
+        const body = document.createElement("div");
+        body.innerHTML = bodyHtml;
+
+        const actions = document.createElement("div");
+        actions.className = "actions";
+
+        const closeBtn = document.createElement("button");
+        closeBtn.textContent = "Close";
+        closeBtn.addEventListener("click", close);
+
+        actions.appendChild(closeBtn);
+
+        box.appendChild(h);
+        box.appendChild(body);
+        box.appendChild(actions);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        function close() {
+          document.removeEventListener("keydown", onKeyDown);
+          overlay.remove();
+        }
+
+        function onKeyDown(e) {
+          if (e.key === "Escape") close();
+        }
+
+        overlay.addEventListener("click", (e) => {
+          if (e.target === overlay) close();
+        });
+
+        document.addEventListener("keydown", onKeyDown);
+        closeBtn.focus();
+      }
+
+      // Kick things off
+      render();
+    </script>
+  </body>
+</html>
